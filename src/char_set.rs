@@ -3,11 +3,12 @@ use once_cell::unsync::Lazy;
 use std::{
     cmp::Ordering,
     fmt::Display,
-    ops::{Deref, DerefMut}, mem::swap,
+    mem::swap,
+    ops::{Deref, DerefMut},
 };
 
 /// **字符集**的数据结构
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct CharSet {
     //字符集id
     pub index_id: i32,
@@ -18,9 +19,10 @@ pub struct CharSet {
     //段的结尾字符
     pub to_char: char,
 }
+
 //实现函数重载
-trait UnionFunc<T,U>{
-    fn union(&mut self,c1:T,c2:U)->i32;
+trait UnionFunc<T, U> {
+    fn union(&mut self, c1: T, c2: U) -> i32;
 }
 
 /// **字符集表**智能指针定义
@@ -45,9 +47,9 @@ impl Display for CharSetTable {
     }
 }
 
-impl UnionFunc<char,char> for CharSetTable{
+impl UnionFunc<char, char> for CharSetTable {
     /// 字符与字符的并运算，
-    fn union(&mut self,c1:char,c2:char)->i32 {
+    fn union(&mut self, c1: char, c2: char) -> i32 {
         let (mut index_id, mut segment_id) = (0, 0);
         index_id = match self.get_max() {
             Some(value) => value + 1,
@@ -95,13 +97,16 @@ impl UnionFunc<char,char> for CharSetTable{
         index_id
     }
 }
-impl UnionFunc<i32,char> for CharSetTable{
+impl UnionFunc<i32, char> for CharSetTable {
     /// 字符集与字符的并运算，不考虑化简，取输入字符的段id，将输入字符作为一个
     /// 字符集加入到输入字符集的下一个段中
-    fn union(&mut self,c1:i32,c2:char)->i32 {
-        let (index_id, mut segment_id) = (c1, 0);
+    fn union(&mut self, c1: i32, c2: char) -> i32 {
+        // the new CharSet was added this line
+        let index_id = self.copy_by_index_id(c1);
+        let mut segment_id = c1;
         segment_id = match self.get_max_segment_id(c1) {
             Some(value) => value + 1,
+            // certainly not to go to this branch unless the input index_id is not legal
             None => panic!("input char_set_id error,no such index_id in P_CHAR_SET_TABLE"),
         };
         self.push(CharSet {
@@ -113,10 +118,10 @@ impl UnionFunc<i32,char> for CharSetTable{
         index_id
     }
 }
-impl UnionFunc<i32,i32> for CharSetTable{
+impl UnionFunc<i32, i32> for CharSetTable {
     /// 字符集与字符集之间的并运算，遍历两个字符集，合并后生成一个新的字符集
     /// 加入到字符集表中
-    fn union(&mut self,c1:i32,c2:i32)->i32 {
+    fn union(&mut self, c1: i32, c2: i32) -> i32 {
         let mut char_set1: Vec<i32> = Vec::new();
         let mut char_set2: Vec<i32> = Vec::new();
         //获取char_set_id对应的字符集在self的索引位置数组
@@ -160,11 +165,30 @@ impl UnionFunc<i32,i32> for CharSetTable{
     }
 }
 
-
 impl CharSetTable {
     ///构造函数，初始化为空数组
     pub fn new() -> CharSetTable {
         CharSetTable { table: vec![] }
+    }
+    pub fn copy_by_index_id(&mut self,index_id:i32)->i32{
+        let mut copy_index:Vec<usize> = vec![];
+        let next_index = match self.get_max(){
+            Some(value) => value+1,
+            None=>0,
+        };
+        for i in 0..self.len(){
+            if self[i].index_id == index_id{
+                copy_index.push(i);
+            }
+        }
+        for item in copy_index{
+            let copy = CharSet{
+                index_id: next_index,
+                ..self[item].clone()
+            };
+            self.push(copy);
+        }
+        next_index
     }
     /// 获取字符表中的index_id的最大值
     fn get_max(&self) -> Option<i32> {
@@ -200,11 +224,11 @@ impl CharSetTable {
     /// 字符的范围运算，将两个字符的较小的作为开始范围，较大的作为结束范围，
     /// 生成一个新的字符集,加入到字符集表中
     pub fn range(&mut self, from_char: char, to_char: char) -> i32 {
-        let (mut from_char,mut to_char) = (from_char,to_char);
-        if from_char as u32 > to_char as u32{
+        let (mut from_char, mut to_char) = (from_char, to_char);
+        // let from_char <= to_char
+        if from_char as u32 > to_char as u32 {
             swap(&mut from_char, &mut to_char);
         }
-
         let (mut index_id, segment_id) = (0, 0);
         index_id = match self.get_max() {
             Some(value) => value + 1,
@@ -220,7 +244,9 @@ impl CharSetTable {
     }
     ///字符集与字符之间的差运算,改变输入的字符集
     pub fn difference(&mut self, char_set_id: i32, c: char) -> i32 {
-        //需要从self中删除的索引数组,删除时要-i
+        // the new CharSet was added on this line
+        let char_set_id = self.copy_by_index_id(char_set_id);
+        //需要从self中删除的索引数组
         let mut remove_index_vec: Vec<usize> = vec![];
         //需要加入到self中
         let mut to_add_vec = Vec::new();
@@ -322,9 +348,7 @@ mod tests {
     fn test_char_set_union_char() {}
 
     #[test]
-    fn test_char_set_union_char_set() {
-
-    }
+    fn test_char_set_union_char_set() {}
 
     #[test]
     fn test_difference1() {
@@ -368,4 +392,21 @@ mod tests {
     }
     #[test]
     fn test_merge_char_set() {}
+
+    fn clone_test(ref_char_set:&CharSet)->CharSet{
+        CharSet { ..(*ref_char_set) }
+    }
+    #[test]
+    fn test_ref(){
+        let test_char_set = CharSet {
+            index_id: 0,
+            segment_id: 1,
+            from_char: 'b',
+            to_char: 'b',
+        };
+        let test2 = clone_test(&test_char_set);
+        let test3 = test_char_set.clone();
+        println!("{:#?}",test_char_set);
+        println!("{:#?}",test3);
+    }
 }
