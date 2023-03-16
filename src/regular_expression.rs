@@ -18,7 +18,7 @@ pub struct regularExpression {
     //词的category属性值
     pub category: LexemeCategory,
     //对应的NFA
-    pub p_nfa: Box<Graph>,
+    pub p_nfa: Graph,
 }
 /// 操作数的类型
 pub enum OperandType {
@@ -52,15 +52,16 @@ pub enum LexemeCategory {
     ID,
     //逻辑运算词
     LOGIC_OPERATOR,
+    //空
+    EMPTY,
 }
-
 
 /// 图的数据结构
 pub struct Graph {
     pub graph_id: i32,
     pub num_of_states: i32,
-    pub p_edge_table: Box<Vec<Box<Edge>>>,
-    pub p_state_table: Box<Vec<Box<State>>>,
+    pub p_edge_table: Vec<Edge>,
+    pub p_state_table: Vec<State>,
 }
 
 /// Edge数据结构
@@ -91,3 +92,34 @@ pub enum StateType {
     UNMATCH,
 }
 
+impl Graph {
+    fn add_state(&mut self, state_type: StateType, category: LexemeCategory) {
+        // find the max state_id and plus 1,default 0
+        let mut state_id = -1;
+        for item in self.p_state_table.iter() {
+            if item.state_id > state_id {
+                state_id = item.state_id;
+            }
+        }
+        state_id += 1;
+        //push state into graph.p_state_table
+        self.p_state_table.push(State {
+            state_id,
+            state_type,
+            category,
+        })
+    }
+    fn add_edge(&mut self, edge: Edge) {
+        self.p_edge_table.push(edge);
+    }
+
+    pub fn generate_basic_nfa(driver_type: DriverType, driver_id: i32) -> Graph {
+        
+        Graph {
+            graph_id: 0,
+            num_of_states: 0,
+            p_edge_table: vec![],
+            p_state_table: vec![],
+        }
+    }
+}
