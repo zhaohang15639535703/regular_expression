@@ -1,4 +1,4 @@
-use safe_regular_expression::char_set::{CharSet,CharSetTable};
+use regular_expression::char_set::{CharSet,CharSetTable};
 fn main() {
     let mut p_char_set_table = CharSetTable::new();
     let char_set1 = CharSet {

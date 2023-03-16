@@ -1,5 +1,5 @@
 [package]
-name = "safe_regular_expression"
+name = "regular_expression"
 version = "0.1.0"
 edition = "2021"
 
