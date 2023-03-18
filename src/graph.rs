@@ -2,7 +2,8 @@
 
 use std::{
     cmp::Ordering,
-    collections::{HashMap, VecDeque}, fmt::Display,
+    collections::{HashMap, VecDeque},
+    fmt::Display,
 };
 
 /// 词的**类别**
@@ -33,20 +34,24 @@ pub enum LexemeCategory {
 }
 
 /// 图的数据结构
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct Graph {
     pub graph_id: i32,
     pub num_of_states: i32,
     pub p_edge_table: Vec<Edge>,
     pub p_state_table: Vec<State>,
 }
-impl Display for Graph{
+impl Display for Graph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\n\ngraph_id:{}\nnum_ofstates:{}\np_edge_table:{:#?}\np_state_table:{:#?}\n\n", self.graph_id,self.num_of_states,self.p_state_table,self.p_edge_table)
+        write!(
+            f,
+            "\n\ngraph_id:{}\nnum_ofstates:{}\np_edge_table:{:#?}\np_state_table:{:#?}\n\n",
+            self.graph_id, self.num_of_states, self.p_state_table, self.p_edge_table
+        )
     }
 }
 /// Edge数据结构，存储状态转换的边
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct Edge {
     /// 该边的转换前的状态id
     pub from_state: i32,
@@ -59,7 +64,7 @@ pub struct Edge {
 }
 
 /// State数据结构，存储状态
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct State {
     pub state_id: i32,
     /// MATCH or UNMATCH
@@ -68,7 +73,7 @@ pub struct State {
     pub category: LexemeCategory,
 }
 
-#[derive(PartialEq, Eq, Clone,Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum DriverType {
     /// 空
     NULL,
@@ -78,7 +83,7 @@ pub enum DriverType {
     CHARSET,
 }
 
-#[derive(PartialEq, Eq, Clone,Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum StateType {
     /// 匹配状态即结束状态
     MATCH,
@@ -255,7 +260,9 @@ impl Graph {
         if !(!s.is_start_state_has_edge_in()
             && s.is_start_state_category_empty()
             && !t.is_start_state_has_edge_in()
-            && t.is_start_state_category_empty())
+            && t.is_start_state_category_empty()
+            && !s.is_end_state_has_edge_out()
+            && !t.is_end_state_has_edge_out())
         {
             s.equivalent_transform();
             t.equivalent_transform();
@@ -542,22 +549,22 @@ impl Graph {
     }
     /// 0或1运算即?
     pub fn zero_or_one(&self) -> Graph {
-        // 直接先进行一次正闭包运算
-        let mut graph = self.plus_closure();
+        // 直接先进行一次闭包运算
+        let mut graph = self.closure();
         // 要删除原结束状态到原开始状态的状态转换边,分为四种情况
         let mut index: usize = 0;
         // 开始状态有入边且结束状态有出边
         if self.is_start_state_has_edge_in() && self.is_end_state_has_edge_out() {
-            index = self.p_edge_table.len() - 2;
+            index = self.p_edge_table.len() - 3;
         // 开始状态有入边结束状态无出边
         } else if self.is_start_state_has_edge_in() && !self.is_end_state_has_edge_out() {
-            index = self.p_edge_table.len() - 1;
+            index = self.p_edge_table.len() - 2;
         // 开始状态无入边，结束状态有出边
         } else if !self.is_start_state_has_edge_in() && self.is_end_state_has_edge_out() {
-            index = self.p_edge_table.len() - 2;
+            index = self.p_edge_table.len() - 3;
         // 开始状态无入边，结束状态无出边
         } else {
-            index = self.p_edge_table.len() - 1;
+            index = self.p_edge_table.len() - 2;
         }
         graph
     }
@@ -727,18 +734,15 @@ impl Graph {
 
 #[cfg(test)]
 mod test {
-    
 
     use super::*;
     //针对一个字符或者一个字符集，创建其NFA。其NFA的基本特征是：只包含两个状态（0状态和1状态），且结束状态（即1状态）无出边
     #[test]
-    fn test_generate_basic_nfa(){
-        let graph = Graph::generate_basic_nfa(DriverType::CHAR,0);
-        println!("{}",graph);
+    fn test_generate_basic_nfa() {
+        let graph = Graph::generate_basic_nfa(DriverType::CHAR, 0);
+        println!("{}", graph);
     }
     // 并运算 s|t
     #[test]
-    fn test_union(){
-        
-    }
+    fn test_union() {}
 }

@@ -223,6 +223,7 @@ impl CharSetTable {
     }
     /// 字符的范围运算，将两个字符的较小的作为开始范围，较大的作为结束范围，
     /// 生成一个新的字符集,加入到字符集表中
+    /// self: &mut Self
     pub fn range(&mut self, from_char: char, to_char: char) -> i32 {
         let (mut from_char, mut to_char) = (from_char, to_char);
         // let from_char <= to_char
@@ -335,6 +336,7 @@ mod tests {
         let id1 = p_char_set_table.range('a', 'z');
         println!("{}", p_char_set_table);
     }
+
     /// 字符的并运算
     #[test]
     fn test_char_union_char() {
@@ -345,7 +347,9 @@ mod tests {
             from_char: 'a',
             to_char: 'z',
         };
+        p_char_set_table.push(char_set1);
         p_char_set_table.union('b', 'c');
+        println!("{}", p_char_set_table);
     }
 
     /// 字符集与字符之间的并运算
