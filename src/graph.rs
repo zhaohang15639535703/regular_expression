@@ -1,5 +1,10 @@
 #![allow(unused, non_camel_case_types)]
 
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, VecDeque},
+};
+
 /// 词的**类别**
 #[derive(PartialEq, Eq, Clone)]
 pub enum LexemeCategory {
@@ -312,9 +317,8 @@ impl Graph {
             p_state_table,
         }
     }
-
     /// 最简NFA构造法：**连接运算** s·t
-    fn product(&self, graph: &Graph) -> Graph {
+    pub fn product(&self, graph: &Graph) -> Graph {
         // 分为两种情况,以下为共同行为
         let mut p_state_table: Vec<State> = Vec::new();
         let mut p_edge_table: Vec<Edge> = Vec::new();
@@ -328,7 +332,7 @@ impl Graph {
         for item in self.p_edge_table.iter() {
             p_edge_table.push(item.clone());
         }
-
+        // 分情况
         // 当 s 的 NFA 的结束状态 s 有出边且 t 的 NFA 的开始状态 0 有入边时
         if self.is_end_state_has_edge_out() && graph.is_start_state_has_edge_in() {
             for (index, item) in graph.p_state_table.iter().enumerate() {
@@ -359,14 +363,13 @@ impl Graph {
                 state.state_id = (self.p_state_table.len() - 1 + index) as i32;
                 p_state_table.push(state);
             }
-            for item in graph.p_edge_table.iter(){
+            for item in graph.p_edge_table.iter() {
                 let mut edge = item.clone();
-                edge.from_state = item.from_state + self.p_state_table.len() as i32 -1;
-                edge.next_state = item.next_state + self.p_state_table.len() as i32 -1;
+                edge.from_state = item.from_state + self.p_state_table.len() as i32 - 1;
+                edge.next_state = item.next_state + self.p_state_table.len() as i32 - 1;
                 p_edge_table.push(edge);
             }
         }
-
         Graph {
             graph_id: 0,
             num_of_states: p_state_table.len() as i32,
@@ -374,10 +377,360 @@ impl Graph {
             p_state_table,
         }
     }
+    /// 正闭包运算
+    pub fn plus_closure(&self) -> Graph {
+        // 分为四种情况
+        let mut p_state_table: Vec<State> = Vec::new();
+        let mut p_edge_table: Vec<Edge> = Vec::new();
+        // 开始状态有入边且结束状态有出边
+        if self.is_start_state_has_edge_in() && self.is_end_state_has_edge_out() {
+            // 在原来的开始状态前再加一个状态作为新的开始状态
+            p_state_table.push(State {
+                state_id: 0,
+                state_type: StateType::UNMATCH,
+                category: LexemeCategory::EMPTY,
+            });
+            // 原来的state更新序号后加入p_state_table
+            for item in self.p_state_table.iter() {
+                let mut state = item.clone();
+                state.state_id = state.state_id + 1;
+                p_state_table.push(state);
+            }
+            // 终止状态的MATCH转为UNMATCH
+            let end_pos = p_edge_table.len() - 1;
+            p_state_table[end_pos].state_type = StateType::UNMATCH;
+            // 终止状态后加一个状态作为新的终止状态
+            p_state_table.push(State {
+                state_id: p_state_table.len() as i32,
+                state_type: StateType::MATCH,
+                category: LexemeCategory::EMPTY,
+            });
+            // 加入当前开始状态到原开始状态的空转换
+            p_edge_table.push(Edge {
+                from_state: 0,
+                next_state: 1,
+                driver_id: -1,
+                driver_type: DriverType::NULL,
+            });
+            // 更新原来的边的from_state和next_state后加入p_edge_table
+            for item in self.p_edge_table.iter() {
+                let mut edge = item.clone();
+                edge.from_state = item.from_state + 1;
+                edge.next_state = item.next_state + 1;
+                p_edge_table.push(edge);
+            }
+            // 加入一条原结束状态(其id为当前结束状态的id-1的状态)到原开始状态（id为1）的空转换边
+            p_edge_table.push(Edge {
+                from_state: p_state_table.len() as i32 - 2,
+                next_state: 1,
+                driver_id: -1,
+                driver_type: DriverType::NULL,
+            });
+            // 加入一条原结束状态到当前结束状态的空转换
+            p_edge_table.push(Edge {
+                from_state: p_state_table.len() as i32 - 1,
+                next_state: p_state_table.len() as i32 - 2,
+                driver_id: -1,
+                driver_type: DriverType::NULL,
+            })
+
+        // 开始状态有入边结束状态无出边
+        } else if self.is_start_state_has_edge_in() && !self.is_end_state_has_edge_out() {
+            // 在原来的开始状态前再加一个状态作为新的开始状态
+            p_state_table.push(State {
+                state_id: 0,
+                state_type: StateType::UNMATCH,
+                category: LexemeCategory::EMPTY,
+            });
+            // 原来的state更新序号后加入p_state_table
+            for item in self.p_state_table.iter() {
+                let mut state = item.clone();
+                state.state_id = state.state_id + 1;
+                p_state_table.push(state);
+            }
+            // 加入当前开始状态到原开始状态的空转换
+            p_edge_table.push(Edge {
+                from_state: 0,
+                next_state: 1,
+                driver_id: -1,
+                driver_type: DriverType::NULL,
+            });
+            // 更新原来的边的from_state和next_state后加入p_edge_table
+            for item in self.p_edge_table.iter() {
+                let mut edge = item.clone();
+                edge.from_state = item.from_state + 1;
+                edge.next_state = item.next_state + 1;
+                p_edge_table.push(edge);
+            }
+            // 加入一条当前结束状态到原开始状态（id为1）的空转换边
+            p_edge_table.push(Edge {
+                from_state: p_state_table.len() as i32 - 1,
+                next_state: 1,
+                driver_id: -1,
+                driver_type: DriverType::NULL,
+            });
+
+        // 开始状态无入边，结束状态有出边
+        } else if !self.is_start_state_has_edge_in() && self.is_end_state_has_edge_out() {
+            // 直接复制一份原来的p_state_table
+            p_state_table = self.p_state_table.clone();
+            // 直接复制一份原来的p_edge_table
+            p_edge_table = self.p_edge_table.clone();
+            // 终止状态的MATCH转为UNMATCH
+            let end_pos = p_edge_table.len() - 1;
+            p_state_table[end_pos].state_type = StateType::UNMATCH;
+            // 终止状态后加一个状态作为新的终止状态
+            p_state_table.push(State {
+                state_id: p_state_table.len() as i32,
+                state_type: StateType::MATCH,
+                category: LexemeCategory::EMPTY,
+            });
+            // 加入一条原终止状态到开始状态的空转换
+            p_edge_table.push(Edge {
+                from_state: p_state_table.len() as i32 - 2,
+                next_state: 0,
+                driver_id: -1,
+                driver_type: DriverType::NULL,
+            });
+            // 加入一条原终止状态到当前终止状态的空转换
+            p_edge_table.push(Edge {
+                from_state: p_state_table.len() as i32 - 1,
+                next_state: p_state_table.len() as i32 - 2,
+                driver_id: -1,
+                driver_type: DriverType::NULL,
+            })
+
+        // 开始状态无入边，结束状态无出边
+        // else if !self.is_start_state_has_edge_in() && !self.is_end_state_has_edge_out()
+        } else {
+            // 直接复制一份原来的p_state_table
+            p_state_table = self.p_state_table.clone();
+            // 直接复制一份原来的p_edge_table
+            p_edge_table = self.p_edge_table.clone();
+            // 加入一条终止状态到开始状态的空转换
+            p_edge_table.push(Edge {
+                from_state: p_state_table.len() as i32 - 1,
+                next_state: 0,
+                driver_id: -1,
+                driver_type: DriverType::NULL,
+            });
+        }
+
+        Graph {
+            graph_id: 0,
+            num_of_states: p_state_table.len() as i32 - 1,
+            p_edge_table,
+            p_state_table,
+        }
+    }
+    /// 闭包运算
+    pub fn closure(&self) -> Graph {
+        // 直接先进行一次正闭包运算
+        let mut graph = self.plus_closure();
+        // 加入一条开始状态到结束状态的边
+        graph.p_edge_table.push(Edge {
+            from_state: 0,
+            next_state: graph.p_state_table.len() as i32 - 1,
+            driver_id: -1,
+            driver_type: DriverType::NULL,
+        });
+        graph
+    }
+    /// 0或1运算即?
+    pub fn zero_or_one(&self) -> Graph {
+        // 直接先进行一次正闭包运算
+        let mut graph = self.plus_closure();
+        // 要删除原结束状态到原开始状态的状态转换边,分为四种情况
+        let mut index: usize = 0;
+        // 开始状态有入边且结束状态有出边
+        if self.is_start_state_has_edge_in() && self.is_end_state_has_edge_out() {
+            index = self.p_edge_table.len() - 2;
+        // 开始状态有入边结束状态无出边
+        } else if self.is_start_state_has_edge_in() && !self.is_end_state_has_edge_out() {
+            index = self.p_edge_table.len() - 1;
+        // 开始状态无入边，结束状态有出边
+        } else if !self.is_start_state_has_edge_in() && self.is_end_state_has_edge_out() {
+            index = self.p_edge_table.len() - 2;
+        // 开始状态无入边，结束状态无出边
+        } else {
+            index = self.p_edge_table.len() - 1;
+        }
+        graph
+    }
+
+    /// 子集构造法move(T,a):从T中的状态经过**一个**输⼊符号a上的转换可以到达的NFA状态集
+    /// self为nfa的图,state_vec为当前状态的nfa state_id数组,driver_id为字符id当为-1时表示空转换
+    fn move_transfer(&self, state_vec: &Vec<i32>, driver_id: i32) -> Vec<i32> {
+        let mut trans_vec: Vec<i32> = Vec::new();
+        for &state_id in state_vec.iter() {
+            for edge in self.p_edge_table.iter() {
+                // 如果edge的起始状态为此次遍历的状态，并且驱动字符为driver_id,即与传入的驱动字符相同
+                if edge.from_state == state_id && edge.driver_id == driver_id {
+                    trans_vec.push(edge.next_state);
+                }
+            }
+        }
+        trans_vec
+    }
+    /// 子集构造法,状态集中的任何状态经**任意条**ε弧而能到达的所有状态的集合(包括自身)
+    fn epsilon_closure(&self, state_vec: &Vec<i32>) -> Vec<i32> {
+        // 将ε-closure(T)初始化为T;
+        let mut stack: VecDeque<i32> = state_vec.clone().into();
+        let mut vec_trans: Vec<i32> = state_vec.clone();
+        loop {
+            // while栈stack不空,弹出栈顶元素,
+            let state_id = match stack.pop_back() {
+                Some(value) => value,
+                None => break,
+            };
+            // 对每个这样的状态u： 从t到u有⼀条标记为ε的边
+            for edge in self.p_edge_table.iter() {
+                if edge.from_state == state_id && edge.driver_id == -1 {
+                    // if u不在ε-closure(T)中 do begin
+                    if !stack.contains(&(edge.next_state)) {
+                        vec_trans.push(edge.next_state);
+                        stack.push_back(edge.next_state);
+                    }
+                }
+            }
+        }
+        vec_trans.sort();
+        vec_trans
+    }
+    /// Dtran
+    fn d_tran(
+        &mut self,
+        d_states: &Vec<Vec<i32>>,
+        from_state_vec: &Vec<i32>,
+        driver_id: i32,
+        driver_type: DriverType,
+        to_state_vec: &Vec<i32>,
+    ) {
+        // 找到from_state和next_state
+        let mut from_state = -1;
+        let mut next_state = -1;
+        let mut flag = 0;
+        for (index, item) in d_states.iter().enumerate() {
+            if flag == 2 {
+                break;
+            }
+            if item.cmp(from_state_vec) == Ordering::Equal {
+                from_state = index as i32;
+                flag += 1;
+            }
+            if item.cmp(to_state_vec) == Ordering::Equal {
+                next_state = index as i32;
+                flag += 1;
+            }
+        }
+        let mut if_exists_from_state = false;
+        let mut if_exists_next_state = false;
+        for item in self.p_state_table.iter() {
+            if item.state_id == from_state {
+                if_exists_from_state = true;
+            }
+            if item.state_id == next_state {
+                if_exists_next_state = true;
+            }
+        }
+        if !if_exists_from_state {
+            self.p_state_table.push(State {
+                state_id: from_state,
+                state_type: StateType::UNMATCH,
+                category: LexemeCategory::EMPTY,
+            });
+        }
+        if !if_exists_next_state {
+            self.p_state_table.push(State {
+                state_id: next_state,
+                state_type: StateType::UNMATCH,
+                category: LexemeCategory::EMPTY,
+            });
+        }
+        self.p_edge_table.push(Edge {
+            from_state,
+            next_state,
+            driver_id,
+            driver_type,
+        });
+    }
+    /// 将NFA转化为DFA
+    pub fn fna_to_dfa(&self) -> Graph {
+        let mut dfa = Graph {
+            graph_id: self.graph_id,
+            num_of_states: 0,
+            p_edge_table: Vec::new(),
+            p_state_table: Vec::new(),
+        };
+
+        // 找到所有输入字符的id和type
+        let mut char_vec: HashMap<i32, DriverType> = HashMap::new();
+        for edge in self.p_edge_table.iter() {
+            if !(edge.driver_type == DriverType::NULL) {
+                char_vec.insert(edge.driver_id, edge.driver_type.clone());
+            }
+        }
+        // 计算epsion_closure(0)
+        let dfa_state0 = self.epsilon_closure(&vec![0]);
+        // Dstates
+        let mut d_states: Vec<Vec<i32>> = Vec::new();
+        // 初始时， ε-closure(s0)是Dstates中唯⼀的状态且未被标记；
+        // 将未标记的状态放到stack中
+        let mut stack: VecDeque<Vec<i32>> = VecDeque::new();
+        stack.push_back(dfa_state0.clone());
+        d_states.push(dfa_state0);
+        // 加入开始状态
+        let mut state_id = 0;
+        dfa.p_state_table.push(State {
+            state_id,
+            state_type: StateType::UNMATCH,
+            category: LexemeCategory::EMPTY,
+        });
+        // while Dstates中存在⼀个未标记的状态T do begin
+        loop {
+            // 标记T:弹出栈
+            let unsigned_state = match stack.pop_back() {
+                Some(value) => value,
+                None => break,
+            };
+            //for 每个输⼊符号a do begin
+            for (&driver_id, driver_type) in char_vec.iter() {
+                // U := ε-closure(move(T， a));
+                let next_unsigned_state =
+                    self.epsilon_closure(&(self.move_transfer(&unsigned_state, driver_id)));
+                // if U没在Dstates中 then
+                if !d_states.contains(&next_unsigned_state) {
+                    // 将U作为⼀个未标记的状态添加到Dstates中；
+                    stack.push_back(next_unsigned_state.clone());
+                    d_states.push(unsigned_state.clone());
+                }
+                dfa.d_tran(
+                    &d_states,
+                    &unsigned_state,
+                    driver_id,
+                    driver_type.clone(),
+                    &next_unsigned_state,
+                );
+            }
+        }
+
+        dfa.num_of_states = dfa.p_state_table.len() as i32 - 1;
+        let end_pos = dfa.p_state_table.len() - 1;
+        dfa.p_state_table[end_pos].state_type = StateType::MATCH;
+        dfa
+    }
 }
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashMap;
+
     #[test]
-    fn test1() {}
+    fn test1() {
+        let mut vec: Vec<Vec<i32>> = Vec::new();
+        vec.push(vec![1, 2, 3, 4]);
+        vec.push(vec![1, 2, 3, 4]);
+        assert_eq!(vec[0], vec[1]);
+        assert!(vec.contains(&vec![1, 2, 3, 4]));
+    }
 }
