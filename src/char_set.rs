@@ -21,7 +21,7 @@ pub struct CharSet {
 }
 
 //实现函数重载
-trait UnionFunc<T, U> {
+pub trait UnionFunc<T, U> {
     fn union(&mut self, c1: T, c2: U) -> i32;
 }
 
@@ -140,23 +140,23 @@ impl UnionFunc<i32, i32> for CharSetTable {
             Some(value) => value + 1,
             None => 0,
         };
-        let len = char_set1.len();
-        for index1 in char_set1 {
-            let from_char = self[index1 as usize].from_char;
-            let to_char = self[index1 as usize].to_char;
+        let len = char_set1.len() as i32;
+        for (i,&value) in char_set1.iter().enumerate() {
+            let from_char = self[value as usize].from_char;
+            let to_char = self[value as usize].to_char;
             self.push(CharSet {
                 index_id,
-                segment_id: index1,
+                segment_id: i as i32,
                 from_char,
                 to_char,
             });
         }
-        for index2 in char_set2 {
-            let from_char = self[index2 as usize].from_char;
-            let to_char = self[index2 as usize].to_char;
+        for (i,&value) in char_set2.iter().enumerate() {
+            let from_char = self[value as usize].from_char;
+            let to_char = self[value as usize].to_char;
             self.push(CharSet {
                 index_id,
-                segment_id: index2 + len as i32,
+                segment_id: i as i32 + len,
                 from_char,
                 to_char,
             });
@@ -297,6 +297,12 @@ impl CharSetTable {
                 }
             }
         }
+
+        //从后向前删除
+        remove_index_vec.reverse();
+        for &value in remove_index_vec.iter() {
+            self.remove(value);
+        }
         //先加到末尾
         for i in 0..to_add_vec.len() {
             to_add_vec[i].segment_id = match self.get_max_segment_id(to_add_vec[i].index_id) {
@@ -304,11 +310,6 @@ impl CharSetTable {
                 None => 0,
             };
             self.push(CharSet { ..to_add_vec[i] });
-        }
-        //从后向前删除
-        remove_index_vec.reverse();
-        for &value in remove_index_vec.iter() {
-            self.remove(value);
         }
         char_set_id
     }
@@ -319,19 +320,22 @@ impl CharSetTable {
 fn merge_char_set(char_set1: &CharSet, char_set2: &CharSet) -> Option<CharSet> {
     //范围合并算法
     //先保证char_set1的最左值小于或等于char_set2的最左值
+    
     None
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 字符的范围运算
     #[test]
     fn test_range() {
         let mut p_char_set_table = CharSetTable::new();
         let id1 = p_char_set_table.range('a', 'z');
         println!("{}", p_char_set_table);
     }
-
+    /// 字符的并运算
     #[test]
     fn test_char_union_char() {
         let mut p_char_set_table = CharSetTable::new();
@@ -344,12 +348,55 @@ mod tests {
         p_char_set_table.union('b', 'c');
     }
 
+    /// 字符集与字符之间的并运算
     #[test]
-    fn test_char_set_union_char() {}
+    fn test_char_set_union_char() {
+        let mut p_char_set_table = CharSetTable::new();
+        let char_set1 = CharSet {
+            index_id: 0,
+            segment_id: 0,
+            from_char: 'a',
+            to_char: 'c',
+        };
+        p_char_set_table.push(char_set1);
+        p_char_set_table.union(0, 'e');
+        println!("{}", p_char_set_table);
+    }
 
+    /// 字符集与字符集之间的并运算
     #[test]
-    fn test_char_set_union_char_set() {}
+    fn test_char_set_union_char_set() {
+        let mut p_char_set_table = CharSetTable::new();
+        let char_set1 = CharSet {
+            index_id: 0,
+            segment_id: 0,
+            from_char: 'a',
+            to_char: 'c',
+        };
+        let char_set2 = CharSet {
+            index_id: 1,
+            segment_id: 0,
+            from_char: 'e',
+            to_char: 'g',
+        };
+        let char_set3 = CharSet {
+            index_id: 2,
+            segment_id: 0,
+            from_char: 'h',
+            to_char: 'k',
+        };
+        p_char_set_table.push(char_set1);
+        p_char_set_table.push(char_set2);
+        p_char_set_table.push(char_set3);
 
+        p_char_set_table.union(0, 1);
+        println!("{}", p_char_set_table);
+
+        p_char_set_table.union(1, 2);
+        println!("{}", p_char_set_table);
+    }
+
+    /// 字符集与字符之间的差运算
     #[test]
     fn test_difference1() {
         let mut p_char_set_table = CharSetTable::new();
@@ -378,35 +425,16 @@ mod tests {
             from_char: 'b',
             to_char: 'b',
         };
-        let char_set3 = CharSet {
-            index_id: 1,
-            segment_id: 0,
-            from_char: 'a',
-            to_char: 'a',
-        };
+
+
         p_char_set_table.push(char_set1);
         p_char_set_table.push(char_set2);
-        p_char_set_table.push(char_set3);
+
         p_char_set_table.difference(0, 'b');
         println!("{}", p_char_set_table);
     }
     #[test]
     fn test_merge_char_set() {}
 
-    fn clone_test(ref_char_set:&CharSet)->CharSet{
-        CharSet { ..(*ref_char_set) }
-    }
-    #[test]
-    fn test_ref(){
-        let test_char_set = CharSet {
-            index_id: 0,
-            segment_id: 1,
-            from_char: 'b',
-            to_char: 'b',
-        };
-        let test2 = clone_test(&test_char_set);
-        let test3 = test_char_set.clone();
-        println!("{:#?}",test_char_set);
-        println!("{:#?}",test3);
-    }
+    
 }

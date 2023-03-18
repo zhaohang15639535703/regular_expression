@@ -2,11 +2,11 @@
 
 use std::{
     cmp::Ordering,
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, VecDeque}, fmt::Display,
 };
 
 /// 词的**类别**
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum LexemeCategory {
     /// 整数常量
     INTEGER_CONST,
@@ -33,16 +33,20 @@ pub enum LexemeCategory {
 }
 
 /// 图的数据结构
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct Graph {
     pub graph_id: i32,
     pub num_of_states: i32,
     pub p_edge_table: Vec<Edge>,
     pub p_state_table: Vec<State>,
 }
-
+impl Display for Graph{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\n\ngraph_id:{}\nnum_ofstates:{}\np_edge_table:{:#?}\np_state_table:{:#?}\n\n", self.graph_id,self.num_of_states,self.p_state_table,self.p_edge_table)
+    }
+}
 /// Edge数据结构，存储状态转换的边
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct Edge {
     /// 该边的转换前的状态id
     pub from_state: i32,
@@ -55,7 +59,7 @@ pub struct Edge {
 }
 
 /// State数据结构，存储状态
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct State {
     pub state_id: i32,
     /// MATCH or UNMATCH
@@ -64,7 +68,7 @@ pub struct State {
     pub category: LexemeCategory,
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone,Debug)]
 pub enum DriverType {
     /// 空
     NULL,
@@ -74,7 +78,7 @@ pub enum DriverType {
     CHARSET,
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone,Debug)]
 pub enum StateType {
     /// 匹配状态即结束状态
     MATCH,
@@ -723,14 +727,18 @@ impl Graph {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
+    
 
+    use super::*;
+    //针对一个字符或者一个字符集，创建其NFA。其NFA的基本特征是：只包含两个状态（0状态和1状态），且结束状态（即1状态）无出边
     #[test]
-    fn test1() {
-        let mut vec: Vec<Vec<i32>> = Vec::new();
-        vec.push(vec![1, 2, 3, 4]);
-        vec.push(vec![1, 2, 3, 4]);
-        assert_eq!(vec[0], vec[1]);
-        assert!(vec.contains(&vec![1, 2, 3, 4]));
+    fn test_generate_basic_nfa(){
+        let graph = Graph::generate_basic_nfa(DriverType::CHAR,0);
+        println!("{}",graph);
+    }
+    // 并运算 s|t
+    #[test]
+    fn test_union(){
+        
     }
 }
