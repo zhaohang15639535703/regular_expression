@@ -666,7 +666,7 @@ impl Graph {
         });
     }
     /// 将NFA转化为DFA
-    pub fn fna_to_dfa(&self) -> Graph {
+    pub fn nfa_to_dfa(&self) -> Graph {
         let mut dfa = Graph {
             graph_id: self.graph_id,
             num_of_states: 0,
